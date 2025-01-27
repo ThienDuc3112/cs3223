@@ -45,13 +45,15 @@ void BTree::printTree() {
       }
     }
     std::cout << "\n";
+    layer++;
   }
 }
 
 // Inesrtion
 void LeafNode::insertNotFull(int k, std::string value) {
-  if (count == 2 * order) {
-    throw std::runtime_error("tree node is full");
+  if (count == 2 * order + 1) {
+    throw std::runtime_error(
+        "tree leaf is order*2+1 before insert, but it should never reach this");
   }
   int i;
   for (i = count - 1; i >= 0 && keys[i] > k; i--)
@@ -63,37 +65,26 @@ void LeafNode::insertNotFull(int k, std::string value) {
 
 void InternalNode::splitChild(int index) {
   BTreeNode *child = children[index];
-  if (child->count < order * 2) {
+  if (child->count <= order * 2) {
     throw std::runtime_error("child is not full");
   }
 
   if (child->isLeaf()) {
     LeafNode *leaf = static_cast<LeafNode *>(child);
-    /*std::cout << "is leaf\n";*/
     LeafNode *newChild = new LeafNode(order);
-    /*std::cout << "new child\n";*/
     newChild->right = leaf->right;
     newChild->left = leaf;
     leaf->right = newChild;
-    /*std::cout << "relink pointer\n";*/
-    for (int i = 0; i < order; i++) {
-      /*std::cout << "num: " << i << "\n";*/
+    for (int i = 0; i <= order; i++) {
       newChild->keys[i] = leaf->keys[i + order];
-      /*std::cout << "copied key: " << newChild->keys[i] << "\n";*/
-      newChild->keys[i] = leaf->keys[i + order];
-      /*std::cout << "copied data: " << newChild->data[i] << "\n";*/
       newChild->data[i + order] = leaf->data[i + order];
       leaf->keys[i + order] = 0;
-      /*std::cout << "zeroed key\n";*/
       leaf->data[i + order] = "";
-      /*std::cout << "zeroed data\n";*/
     }
     leaf->count = order;
-    newChild->count = order;
+    newChild->count = order + 1;
     int newKey = newChild->keys[0];
 
-    //  [0, 1, 2,   2.5  ,3, 4, 5]
-    // [0, 1, 2, 3.25, 3.5, 4, 5, 6]
     int j;
     for (j = count - 1; j >= index; j--) {
       keys[j + 1] = keys[j];
@@ -105,6 +96,39 @@ void InternalNode::splitChild(int index) {
     return;
   }
 
+  InternalNode *node = static_cast<InternalNode *>(child);
+  InternalNode *newNode = new InternalNode(order);
+  for (int i = 0; i < order; i++) {
+    //  [0, 1, (), 3, 4]
+    // [0, 1, 2, 3, 4, 5]
+    newNode->keys[i] = node->keys[i + order + 1];
+    node->keys[i + order + 1] = 0;
+    newNode->children[i] = node->children[i + order + 1];
+    node->children[i + order + 1] = nullptr;
+  }
+  newNode->children[order] = node->children[2 * order + 1];
+  node->children[2 * order + 1] = nullptr;
+  newNode->count = order;
+  node->count = order;
+
+  /*std::cout << "===== Splitting an internal node =====\n";*/
+  /*node->print();*/
+  /*std::cout << " ";*/
+  /*newNode->print();*/
+  /*std::cout << "\n";*/
+  /*std::cout << "new key: " << node->keys[order] << "\n";*/
+
+  int j;
+  for (j = count - 1; j >= index; j--) {
+    keys[j + 1] = keys[j];
+    children[j + 2] = children[j + 1];
+  }
+  keys[j + 1] = node->keys[order];
+  node->keys[order] = 0;
+  children[j + 2] = newNode;
+  count++;
+  return;
+
   throw std::runtime_error("Haven't implemented lol");
 }
 
@@ -113,15 +137,9 @@ void InternalNode::insertNotFull(int key, std::string data) {
   for (i = 0; i < count && key > keys[i]; i++)
     ;
   BTreeNode *child = children[i];
-  if (child->count < order * 2) {
-    child->insertNotFull(key, data);
-    return;
-  }
-
-  splitChild(i);
-  if (keys[i] < key)
-    i++;
-  children[i]->insertNotFull(key, data);
+  child->insertNotFull(key, data);
+  if (child->count == order * 2 + 1)
+    splitChild(i);
 }
 
 void BTree::insert(int key, std::string data) {
@@ -129,24 +147,15 @@ void BTree::insert(int key, std::string data) {
     root = new LeafNode(order);
   }
 
-  if (root->count < order * 2) {
-    root->insertNotFull(key, data);
-    itemCount++;
-    return;
-  }
+  root->insertNotFull(key, data);
+  itemCount++;
 
-  if (root->isLeaf()) {
-    InternalNode *newRoot = new InternalNode(order);
-    newRoot->children[0] = root;
-    newRoot->splitChild(0);
-    int i = 0;
-    if (newRoot->keys[0] < key)
-      i++;
-    newRoot->children[i]->insertNotFull(key, data);
-    itemCount++;
-    root = newRoot;
+  if (root->count < order * 2 + 1)
     return;
-  }
 
-  throw std::runtime_error("btree haven't implemented propogation lol");
+  InternalNode *newRoot = new InternalNode(order);
+  newRoot->children[0] = root;
+  newRoot->splitChild(0);
+  root = newRoot;
+  return;
 }

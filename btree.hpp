@@ -10,7 +10,7 @@ class LeafNode;
 class BTreeNode {
 public:
   BTreeNode(int order) {
-    this->keys = new int[order * 2];
+    this->keys = new int[order * 2 + 1];
     this->count = 0;
     this->order = order;
   };
@@ -31,7 +31,7 @@ protected:
 class InternalNode : public BTreeNode {
 public:
   InternalNode(int order) : BTreeNode(order) {
-    this->children = new BTreeNode *[order * 2 + 1];
+    this->children = new BTreeNode *[order * 2 + 2];
   }
   ~InternalNode() {
     for (int i = 0; i < count; ++i) {
@@ -52,7 +52,7 @@ private:
 class LeafNode : public BTreeNode {
 public:
   LeafNode(int order) : BTreeNode(order) {
-    this->data = new std::string[order * 2];
+    this->data = new std::string[order * 2 + 1];
     this->left = nullptr;
     this->right = nullptr;
   }
