@@ -41,6 +41,7 @@ public:
   };
   bool isLeaf() override { return false; };
   void splitChild(int);
+  bool redistribute(int);
   friend class BTree;
 
 private:

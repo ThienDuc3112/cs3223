@@ -66,7 +66,7 @@ void LeafNode::insertNotFull(int k, std::string value) {
 void InternalNode::splitChild(int index) {
   BTreeNode *child = children[index];
   if (child->count <= order * 2) {
-    throw std::runtime_error("child is not full");
+    throw std::runtime_error("child is not overflowing");
   }
 
   if (child->isLeaf()) {
@@ -128,8 +128,27 @@ void InternalNode::splitChild(int index) {
   children[j + 2] = newNode;
   count++;
   return;
+}
 
-  throw std::runtime_error("Haven't implemented lol");
+bool InternalNode::redistribute(int index) {
+  BTreeNode *child = children[index];
+  if (child->count <= order * 2)
+    throw std::runtime_error("child is not overflowing");
+
+  if ((index - 1 < 0 || children[index - 1]->count >= 2 * order) &&
+      (index + 1 >= 2 * order + 1 || children[index + 1]->count >= 2 * order))
+    return false;
+
+  if (index + 1 < 2 * order + 1 && children[index + 1]->count < 2 * order) {
+    BTreeNode *right = children[index + 1];
+    // TO BE CONTINUE
+    //
+    //
+    //
+    //
+  }
+  throw std::runtime_error("Haven't implemented redistribute lol");
+  return true;
 }
 
 void InternalNode::insertNotFull(int key, std::string data) {
