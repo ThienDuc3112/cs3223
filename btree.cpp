@@ -111,13 +111,6 @@ void InternalNode::splitChild(int index) {
   newNode->count = order;
   node->count = order;
 
-  /*std::cout << "===== Splitting an internal node =====\n";*/
-  /*node->print();*/
-  /*std::cout << " ";*/
-  /*newNode->print();*/
-  /*std::cout << "\n";*/
-  /*std::cout << "new key: " << node->keys[order] << "\n";*/
-
   int j;
   for (j = count - 1; j >= index; j--) {
     keys[j + 1] = keys[j];
@@ -130,25 +123,69 @@ void InternalNode::splitChild(int index) {
   return;
 }
 
-bool InternalNode::redistribute(int index) {
+bool InternalNode::insertRedistribute(int index) {
   BTreeNode *child = children[index];
   if (child->count <= order * 2)
     throw std::runtime_error("child is not overflowing");
 
-  if ((index - 1 < 0 || children[index - 1]->count >= 2 * order) &&
-      (index + 1 >= 2 * order + 1 || children[index + 1]->count >= 2 * order))
-    return false;
+  if (!child->isLeaf())
+    throw std::runtime_error("child is not a leaf");
 
-  if (index + 1 < 2 * order + 1 && children[index + 1]->count < 2 * order) {
-    BTreeNode *right = children[index + 1];
-    // TO BE CONTINUE
-    //
-    //
-    //
-    //
+  LeafNode *childLeaf = childLeaf = static_cast<LeafNode *>(child);
+
+  if (index + 1 <= count && children[index + 1]->count < 2 * order) {
+    LeafNode *right = static_cast<LeafNode *>(children[index + 1]);
+
+    int midIndex = (child->count + right->count) / 2;
+    int amountToShift = 2 * order + 1 - midIndex;
+
+    // Shift right node
+    for (int i = right->count - 1; i >= 0; i--) {
+      right->keys[i + amountToShift] = right->keys[i];
+      right->data[i + amountToShift] = right->data[i];
+    }
+
+    // Copied data
+    for (int i = 0; i < amountToShift; i++) {
+      right->keys[amountToShift - 1 - i] = childLeaf->keys[2 * order - i];
+      childLeaf->keys[2 * order - i] = 0;
+      right->data[amountToShift - 1 - i] = childLeaf->data[2 * order - i];
+      childLeaf->data[2 * order - i] = "";
+    }
+
+    childLeaf->count -= amountToShift;
+    right->count += amountToShift;
+
+    keys[index] = right->keys[0];
+    return true;
+  } else if (index - 1 >= 0 && children[index - 1]->count < 2 * order) {
+    LeafNode *left = static_cast<LeafNode *>(children[index - 1]);
+
+    int midIndex = (child->count + left->count) / 2;
+    int amountToShift = 2 * order + 1 - midIndex;
+
+    // Copied data
+    for (int i = 0; i < amountToShift; i++) {
+      left->keys[left->count + i] = childLeaf->keys[i];
+      left->data[left->count + i] = childLeaf->data[i];
+    }
+
+    // Shift child
+    for (int i = 0; i < childLeaf->count - amountToShift; i++) {
+      childLeaf->keys[i] = childLeaf->keys[i + amountToShift];
+      childLeaf->keys[i + amountToShift] = 0;
+      childLeaf->data[i] = childLeaf->data[i + amountToShift];
+      childLeaf->data[i + amountToShift] = "";
+    }
+
+    childLeaf->count -= amountToShift;
+    left->count += amountToShift;
+
+    keys[index - 1] = childLeaf->keys[0];
+    return true;
   }
-  throw std::runtime_error("Haven't implemented redistribute lol");
-  return true;
+
+  return false;
 }
 
 void InternalNode::insertNotFull(int key, std::string data) {
@@ -158,7 +195,8 @@ void InternalNode::insertNotFull(int key, std::string data) {
   BTreeNode *child = children[i];
   child->insertNotFull(key, data);
   if (child->count == order * 2 + 1)
-    splitChild(i);
+    if (!child->isLeaf() || !insertRedistribute(i))
+      splitChild(i);
 }
 
 void BTree::insert(int key, std::string data) {
